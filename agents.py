@@ -13,14 +13,17 @@ Agent Architecture:
       ├──► Transfer Agent      — how to send money, fees, steps, beneficiaries
       ├──► Compliance Agent    — KYC/AML, identity verification, regulations
       ├──► Rewards Agent       — rewards program, lucky draw, chances, prizes
-      └──► Support Agent       — complaints, refunds, account issues, contact
+      ├──► Support Agent       — complaints, refunds, account issues, contact
+      └──► Web Search Agent    — questions outside the Ajeer knowledge base
 """
 
 from __future__ import annotations
 import os
 import re
+import requests
 from typing import TypedDict, Literal, Any
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
 import google.generativeai as genai
 from langgraph.graph import StateGraph, END
@@ -29,6 +32,9 @@ load_dotenv()
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
+
+# Sentinel phrase agents use when KB doesn't cover the question
+_OUT_OF_SCOPE_MARKER = "<<OUT_OF_SCOPE>>"
 
 
 def _gemini(system: str, user: str, history: list[dict] | None = None) -> str:
@@ -43,6 +49,43 @@ def _gemini(system: str, user: str, history: list[dict] | None = None) -> str:
     return response.text.strip()
 
 
+def _gemini_web_search(query: str) -> str:
+    """
+    Use Gemini's built-in Google Search grounding to answer a query with
+    real-time web results. Falls back to plain Gemini if grounding fails.
+    """
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash-lite",
+            tools=[{"google_search": {}}],
+        )
+        system = (
+            "You are a helpful assistant for Ajeer users. "
+            "The user asked a question that is outside Ajeer's platform-specific knowledge base. "
+            "Search the web and provide a clear, accurate, and concise answer. "
+            "If the question involves financial, legal, or medical advice, remind the user "
+            "to consult a qualified professional. "
+            "Cite key sources naturally in your answer where relevant."
+        )
+        response = model.generate_content(f"{system}\n\nUser question: {query}")
+        return response.text.strip()
+    except Exception as e:
+        print(f"[Web Search Grounding Error] {e} — falling back to plain Gemini")
+        # Plain Gemini fallback (no live data but still helpful)
+        try:
+            model = genai.GenerativeModel("gemini-2.5-flash-lite")
+            fallback_prompt = (
+                "You are a helpful general-purpose assistant. "
+                "Answer the following question as accurately as possible based on your training knowledge. "
+                "Be concise and clear.\n\n"
+                f"Question: {query}"
+            )
+            response = model.generate_content(fallback_prompt)
+            return response.text.strip()
+        except Exception as e2:
+            return f"I'm sorry, I wasn't able to find an answer right now. Please try again or contact cs@Ajeer.money for help."
+
+
 # ─────────────────────────────────────────────────────────────────
 # Shared Graph State
 # ─────────────────────────────────────────────────────────────────
@@ -54,7 +97,7 @@ class AgentState(TypedDict):
     currency_code: str
     currency_symbol: str
     currency_name: str
-    route: Literal["faq", "transfer", "compliance", "rewards", "support"]
+    route: Literal["faq", "transfer", "compliance", "rewards", "support", "web_search"]
     response: str
     agent_used: str
     agent_emoji: str
@@ -153,6 +196,11 @@ currencies without conversion fees.
 ## What is the eSIM product?
 Ajeer offers instant data eSIMs for travel in 100+ countries. Activate in seconds, no 
 physical SIM needed, and keep your existing number.
+
+## Will a payment reference appear on the recipient's bank statement?
+The reference field allows you to enter a reference. Whether it appears on the recipient's 
+statement depends on their bank and the correspondent network used for that corridor. 
+Not all banks pass payment references through.
 """
 
 COMPLIANCE_KB = """
@@ -318,6 +366,20 @@ DPO: Mr G Kiruba. Contact through cs@Ajeer.money for GDPR-related queries.
 
 
 # ─────────────────────────────────────────────────────────────────
+# Shared out-of-scope system instruction appended to every KB agent
+# ─────────────────────────────────────────────────────────────────
+_OOS_INSTRUCTION = f"""
+IMPORTANT — Out-of-scope detection:
+If the user's question is NOT covered by the knowledge base above and is genuinely outside 
+Ajeer's platform scope (e.g. general world knowledge, news, weather, cooking, health advice, 
+general finance unrelated to Ajeer, etc.), respond with ONLY this exact marker on its own line:
+{_OUT_OF_SCOPE_MARKER}
+Do NOT add any other text if you output this marker.
+Otherwise answer normally from the knowledge base.
+"""
+
+
+# ─────────────────────────────────────────────────────────────────
 # Node 1: Supervisor — classifies and routes
 # ─────────────────────────────────────────────────────────────────
 def supervisor_node(state: AgentState) -> AgentState:
@@ -346,6 +408,9 @@ def supervisor_node(state: AgentState) -> AgentState:
         "destination",
         "iban",
         "swift",
+        "payment reference",
+        "bank statement",
+        "reference appear",
     ]
     compliance_kw = [
         "verify",
@@ -429,6 +494,7 @@ Categories:
 - compliance  → KYC, identity verification, AML, data privacy, GDPR, regulations, account security
 - rewards     → rewards program, lucky draw, chances to win, prizes, Bogo Liv, Umrah
 - support     → complaints, account issues, wrong transfers, unauthorised payments, contact, refunds
+- web_search  → questions completely unrelated to Ajeer (news, general knowledge, weather, cooking, health, etc.)
 
 Message: "{msg}"
 Category:""".format(
@@ -438,11 +504,15 @@ Category:""".format(
             model = genai.GenerativeModel("gemini-2.5-flash-lite")
             result = model.generate_content(prompt)
             route_raw = result.text.strip().lower().split()[0]
-            route = (
-                route_raw
-                if route_raw in ["faq", "transfer", "compliance", "rewards", "support"]
-                else "faq"
-            )
+            valid_routes = [
+                "faq",
+                "transfer",
+                "compliance",
+                "rewards",
+                "support",
+                "web_search",
+            ]
+            route = route_raw if route_raw in valid_routes else "faq"
         except Exception:
             route = "faq"
 
@@ -452,6 +522,35 @@ Category:""".format(
         "response": "",
         "agent_used": "",
         "agent_emoji": "",
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
+# Helper: check if a response is out-of-scope and trigger web search
+# ─────────────────────────────────────────────────────────────────
+def _handle_oos_or_return(
+    response: str,
+    user_message: str,
+    state: AgentState,
+    agent_used: str,
+    agent_emoji: str,
+) -> AgentState:
+    """If the LLM signalled out-of-scope, run web search. Otherwise return normally."""
+    if _OUT_OF_SCOPE_MARKER in response:
+        print(f"[OOS DETECTED] KB agent signalled out-of-scope → routing to web search")
+        web_response = _gemini_web_search(user_message)
+        return {
+            **state,
+            "response": web_response,
+            "agent_used": "Web Search Agent",
+            "agent_emoji": "🌐",
+            "route": "web_search",
+        }
+    return {
+        **state,
+        "response": response,
+        "agent_used": agent_used,
+        "agent_emoji": agent_emoji,
     }
 
 
@@ -467,14 +566,12 @@ If the answer isn't in the knowledge base, say so and direct them to cs@Ajeer.mo
 Do not make up information. Format with short paragraphs — no excessive bullet points.
 
 KNOWLEDGE BASE:
-{FAQ_KB}"""
+{FAQ_KB}
+{_OOS_INSTRUCTION}"""
     response = _gemini(system, state["user_message"], state["history"])
-    return {
-        **state,
-        "response": response,
-        "agent_used": "FAQ Agent",
-        "agent_emoji": "📋",
-    }
+    return _handle_oos_or_return(
+        response, state["user_message"], state, "FAQ Agent", "📋"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -493,14 +590,12 @@ fees are shown upfront in the app before confirmation. Direct to the app or cs@A
 for live quotes. Do not invent specific exchange rates.
 
 KNOWLEDGE BASE:
-{TRANSFER_KB}"""
+{TRANSFER_KB}
+{_OOS_INSTRUCTION}"""
     response = _gemini(system, state["user_message"], state["history"])
-    return {
-        **state,
-        "response": response,
-        "agent_used": "Transfer Agent",
-        "agent_emoji": "💸",
-    }
+    return _handle_oos_or_return(
+        response, state["user_message"], state, "Transfer Agent", "💸"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -516,14 +611,12 @@ For complex legal matters, direct users to cs@Ajeer.money or the appropriate aut
 NEVER give specific legal advice — only explain Ajeer's policies and regulations as documented.
 
 KNOWLEDGE BASE:
-{COMPLIANCE_KB}"""
+{COMPLIANCE_KB}
+{_OOS_INSTRUCTION}"""
     response = _gemini(system, state["user_message"], state["history"])
-    return {
-        **state,
-        "response": response,
-        "agent_used": "Compliance Agent",
-        "agent_emoji": "🛡️",
-    }
+    return _handle_oos_or_return(
+        response, state["user_message"], state, "Compliance Agent", "🛡️"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -538,14 +631,12 @@ Be enthusiastic but accurate. Help users understand how to maximise their chance
 Do not promise specific prizes — note that Ajeer may substitute prizes without prior notice.
 
 KNOWLEDGE BASE:
-{REWARDS_KB}"""
+{REWARDS_KB}
+{_OOS_INSTRUCTION}"""
     response = _gemini(system, state["user_message"], state["history"])
-    return {
-        **state,
-        "response": response,
-        "agent_used": "Rewards Agent",
-        "agent_emoji": "🎁",
-    }
+    return _handle_oos_or_return(
+        response, state["user_message"], state, "Rewards Agent", "🎁"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -567,13 +658,26 @@ If someone reports fraud or an unauthorised payment, treat it urgently and tell 
 contact Ajeer immediately at cs@Ajeer.money.
 
 KNOWLEDGE BASE:
-{SUPPORT_KB}"""
+{SUPPORT_KB}
+{_OOS_INSTRUCTION}"""
     response = _gemini(system, state["user_message"], state["history"])
+    return _handle_oos_or_return(
+        response, state["user_message"], state, "Support Agent", "🎧"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# Node 7: Web Search Agent (direct route for clearly off-topic queries)
+# ─────────────────────────────────────────────────────────────────
+def web_search_agent_node(state: AgentState) -> AgentState:
+    """Handles queries that are clearly outside Ajeer's domain from the start."""
+    print(f"[WEB SEARCH AGENT] Directly handling: '{state['user_message'][:60]}'")
+    response = _gemini_web_search(state["user_message"])
     return {
         **state,
         "response": response,
-        "agent_used": "Support Agent",
-        "agent_emoji": "🎧",
+        "agent_used": "Web Search Agent",
+        "agent_emoji": "🌐",
     }
 
 
@@ -596,6 +700,7 @@ def build_agent_graph():
     graph.add_node("compliance", compliance_agent_node)
     graph.add_node("rewards", rewards_agent_node)
     graph.add_node("support", support_agent_node)
+    graph.add_node("web_search", web_search_agent_node)
 
     graph.set_entry_point("supervisor")
 
@@ -608,13 +713,205 @@ def build_agent_graph():
             "compliance": "compliance",
             "rewards": "rewards",
             "support": "support",
+            "web_search": "web_search",
         },
     )
 
-    for node in ["faq", "transfer", "compliance", "rewards", "support"]:
+    for node in ["faq", "transfer", "compliance", "rewards", "support", "web_search"]:
         graph.add_edge(node, END)
 
     return graph.compile()
+
+
+# ─────────────────────────────────────────────────────────────────
+# MongoDB FAQ Lookup — check DB before hitting the LLM
+# ─────────────────────────────────────────────────────────────────
+
+# Similarity threshold: 0.0–1.0. Lower = more lenient matching.
+FAQ_SIMILARITY_THRESHOLD = 0.45
+
+
+def _similarity(a: str, b: str) -> float:
+    """Return a 0–1 similarity score between two strings (case-insensitive)."""
+    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
+
+
+def _extract_query_keywords(text: str) -> list[str]:
+    """Pull meaningful words from the user's message for keyword matching."""
+    words = re.findall(r"[a-z]{3,}", text.lower())
+    stopwords = {
+        "the",
+        "and",
+        "for",
+        "are",
+        "you",
+        "your",
+        "this",
+        "that",
+        "with",
+        "have",
+        "has",
+        "been",
+        "from",
+        "they",
+        "will",
+        "not",
+        "can",
+        "may",
+        "any",
+        "all",
+        "also",
+        "more",
+        "only",
+        "when",
+        "once",
+        "then",
+        "than",
+        "their",
+        "them",
+        "into",
+        "over",
+        "after",
+        "before",
+        "during",
+        "such",
+        "each",
+        "both",
+        "these",
+        "those",
+        "which",
+        "what",
+        "how",
+        "why",
+        "who",
+        "where",
+        "our",
+        "its",
+        "via",
+        "per",
+        "but",
+        "out",
+        "use",
+        "used",
+        "make",
+        "made",
+        "get",
+        "one",
+        "two",
+        "three",
+        "new",
+    }
+    return [w for w in words if w not in stopwords]
+
+
+def lookup_faq_db(message: str, db) -> dict | None:
+    """
+    Search the faq_kb MongoDB collection for a matching Q&A.
+
+    Strategy (in order):
+      1. MongoDB full-text search ($text) — fast, index-backed
+      2. Keyword overlap scoring on returned candidates
+      3. String similarity fallback on question text
+      4. Return best match if score >= FAQ_SIMILARITY_THRESHOLD, else None
+    """
+    if db is None:
+        return None
+
+    try:
+        query_keywords = _extract_query_keywords(message)
+        best_match = None
+        best_score = 0.0
+
+        # ── Step 1: MongoDB text search (returns up to 10 candidates) ──
+        text_candidates = []
+        try:
+            cursor = (
+                db["faq_kb"]
+                .find(
+                    {"$text": {"$search": message}},
+                    {
+                        "score": {"$meta": "textScore"},
+                        "question": 1,
+                        "answer": 1,
+                        "category": 1,
+                    },
+                )
+                .sort([("score", {"$meta": "textScore"})])
+                .limit(10)
+            )
+            text_candidates = list(cursor)
+        except Exception:
+            pass  # text index may not exist yet; fall through to keyword search
+
+        # ── Step 2: Keyword overlap search (broader net) ──
+        keyword_candidates = []
+        if query_keywords:
+            try:
+                keyword_candidates = list(
+                    db["faq_kb"]
+                    .find(
+                        {"keywords": {"$in": query_keywords}},
+                        {"question": 1, "answer": 1, "category": 1},
+                    )
+                    .limit(15)
+                )
+            except Exception:
+                pass
+
+        # Merge candidates (deduplicate by _id)
+        seen_ids = set()
+        candidates = []
+        for doc in text_candidates + keyword_candidates:
+            doc_id = str(doc.get("_id", ""))
+            if doc_id not in seen_ids:
+                seen_ids.add(doc_id)
+                candidates.append(doc)
+
+        # ── Step 3: Score each candidate ──
+        for doc in candidates:
+            q = doc.get("question", "")
+
+            # Primary: string similarity between user message and stored question
+            sim_score = _similarity(message, q)
+
+            # Bonus: keyword overlap ratio
+            doc_keywords = set(_extract_query_keywords(q + " " + doc.get("answer", "")))
+            query_kw_set = set(query_keywords)
+            if query_kw_set:
+                overlap = len(query_kw_set & doc_keywords) / len(query_kw_set)
+            else:
+                overlap = 0.0
+
+            # Combined score (similarity weighted higher)
+            combined = (sim_score * 0.65) + (overlap * 0.35)
+
+            if combined > best_score:
+                best_score = combined
+                best_match = doc
+
+        if best_match and best_score >= FAQ_SIMILARITY_THRESHOLD:
+            return {
+                "answer": best_match["answer"],
+                "question": best_match["question"],
+                "category": best_match.get("category", "faq"),
+                "score": round(best_score, 3),
+            }
+
+    except Exception as e:
+        print(f"[FAQ DB lookup error] {e}")
+
+    return None
+
+
+def _category_to_agent_meta(category: str) -> tuple[str, str]:
+    """Map a DB category to agent_used label and emoji."""
+    mapping = {
+        "transfer": ("Transfer Agent", "💸"),
+        "compliance": ("Compliance Agent", "🛡️"),
+        "support": ("Support Agent", "🎧"),
+        "faq": ("FAQ Agent", "📋"),
+    }
+    return mapping.get(category, ("FAQ Agent", "📋"))
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -628,8 +925,27 @@ def run_agent(
     currency_code: str,
     currency_symbol: str,
     currency_name: str,
-    db=None,  # kept for API compatibility, not used in this version
+    db=None,
 ) -> dict:
+    # ── Step 1: Check MongoDB FAQ first ──────────────────────────
+    faq_hit = lookup_faq_db(message, db)
+    if faq_hit:
+        agent_used, agent_emoji = _category_to_agent_meta(faq_hit["category"])
+        print(
+            f"[FAQ DB HIT] score={faq_hit['score']} | "
+            f"matched: '{faq_hit['question'][:60]}'"
+        )
+        return {
+            "reply": faq_hit["answer"],
+            "agent_used": agent_used,
+            "agent_emoji": agent_emoji,
+            "route": faq_hit["category"],
+            "sources": ["Ajeer FAQ Database"],
+            "faq_db_hit": True,
+        }
+
+    # ── Step 2: Fall back to LLM multi-agent graph ───────────────
+    print(f"[FAQ DB MISS] Falling back to LLM agents for: '{message[:60]}'")
     graph = build_agent_graph()
 
     initial_state: AgentState = {
@@ -648,10 +964,19 @@ def run_agent(
 
     result = graph.invoke(initial_state)
 
+    # Determine source label
+    final_route = result.get("route", "faq")
+    sources = (
+        ["Web Search (Google)"]
+        if final_route == "web_search"
+        else ["Ajeer Knowledge Base (LLM)"]
+    )
+
     return {
         "reply": result.get("response", "I encountered an error. Please try again."),
         "agent_used": result.get("agent_used", "FAQ Agent"),
         "agent_emoji": result.get("agent_emoji", "📋"),
-        "route": result.get("route", "faq"),
-        "sources": ["Ajeer Knowledge Base"],
+        "route": final_route,
+        "sources": sources,
+        "faq_db_hit": False,
     }

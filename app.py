@@ -19,6 +19,16 @@ app.config["MONGO_URI"] = os.environ.get(
 )
 mongo = PyMongo(app)
 
+
+def db_ok():
+    """Returns True if MongoDB is reachable."""
+    try:
+        mongo.cx.admin.command("ping")
+        return True
+    except Exception:
+        return False
+
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "your-gemini-api-key")
 EXCHANGE_API_KEY = os.environ.get(
     "EXCHANGE_API_KEY", "your-exchange-api-key"
@@ -115,8 +125,8 @@ def register():
         password = request.form.get("password", "")
         country = request.form.get("country", "Other")
 
-        if mongo.db is None:
-            error = "Database unavailable. Please start MongoDB."
+        if not db_ok():
+            error = "Database unavailable. Please check your MongoDB connection."
         elif mongo.db.users.find_one({"email": email}):
             error = "Email already registered."
         elif len(password) < 6:
@@ -159,8 +169,8 @@ def login():
         password = request.form.get("password", "")
         country = request.form.get("country", "Other")
 
-        if mongo.db is None:
-            error = "Database unavailable. Please start MongoDB and restart the server."
+        if not db_ok():
+            error = "Database unavailable. Please check your MongoDB connection."
         else:
             user = mongo.db.users.find_one({"email": email})
             if user and check_password_hash(user["password"], password):

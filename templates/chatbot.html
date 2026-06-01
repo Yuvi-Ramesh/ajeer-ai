@@ -502,6 +502,10 @@
         background: rgba(139, 92, 246, 0.1);
         color: var(--purple);
       }
+      .agent-tag.web_search {
+        background: rgba(6, 182, 212, 0.1);
+        color: #06b6d4;
+      }
 
       @media (max-width: 768px) {
         .sidebar {
@@ -571,6 +575,7 @@
             <div class="rag-feat">🛡️ Compliance Agent</div>
             <div class="rag-feat">🎁 Rewards Agent</div>
             <div class="rag-feat">🎧 Support Agent</div>
+            <div class="rag-feat">🌐 Web Search Agent</div>
           </div>
         </div>
 
@@ -740,7 +745,18 @@
 
           const reply =
             data.reply || "I encountered an error. Please try again.";
-          appendMsg(formatMarkdown(reply), "ai");
+          const agentEmoji = data.agent_emoji || "🤖";
+          const agentUsed = data.agent_used || "AI Agent";
+          const route = data.route || "faq";
+          const isWebSearch = route === "web_search";
+          const agentLabel = isWebSearch
+            ? `${agentEmoji} ${agentUsed} · Live Web`
+            : `${agentEmoji} ${agentUsed}${data.faq_db_hit ? " · FAQ DB" : ""}`;
+          appendMsg(
+            formatMarkdown(reply) +
+              `<div class="agent-tag ${route}">${agentLabel}</div>`,
+            "ai",
+          );
           history.push({ role: "assistant", content: reply });
         } catch (e) {
           removeTyping();
