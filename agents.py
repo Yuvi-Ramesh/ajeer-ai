@@ -557,14 +557,15 @@ def lookup_qdrant_rag(message: str) -> "dict | None":
 
 def _rag_synthesise(user_message: str, context: str, category: str, state: dict) -> str:
     """
-    Feed retrieved Qdrant context (chunks or FAQ pairs) into Gemini.
-    Produces a SHORT, grounded answer — 1-3 sentences, nothing invented.
+    Feed retrieved Qdrant context into Gemini for a short, grounded answer.
+    If context is thin, the LLM may use its own Ajeer knowledge to fill gaps.
     """
     persona_map = {
         "transfer": "You are the Ajeer Transfer Agent — expert in money transfers, fees, exchange rates, beneficiaries, Ajeer Card, and eSIM.",
         "compliance": "You are the Ajeer Compliance Agent — expert in KYC/AML, identity verification, GDPR, FCA regulation, and account security.",
         "support": "You are the Ajeer Support Agent — expert in complaints, account issues, wrong transfers, and contacting Ajeer or regulators.",
         "rewards": "You are the Ajeer Rewards Agent — expert in the Rewards Program, monthly draw, prizes, and Bogo Liv Gold membership.",
+        "faq": "You are a helpful Ajeer platform assistant with full knowledge of the Ajeer money transfer service.",
     }
     persona = persona_map.get(category, "You are a helpful Ajeer platform assistant.")
 
@@ -575,19 +576,19 @@ def _rag_synthesise(user_message: str, context: str, category: str, state: dict)
             f"({state['currency_symbol']} {state['currency_code']})."
         )
 
+    has_context = bool(context and context.strip())
+    context_block = (
+        f"\nRELEVANT CONTEXT FROM DATABASE:\n{context}\n" if has_context else ""
+    )
+
     system = f"""{persona}
 {user_ctx}
-
-Answer the user's question using ONLY the retrieved content below.
-Rules:
-- Give the exact answer in 1–3 sentences. No filler, no greetings.
-- If the content is a document excerpt, extract and state the relevant fact directly.
-- If the content does not answer the question, reply ONLY with:
-  "I don't have a specific answer for that. Please contact cs@Ajeer.money."
-- Never invent information not present in the retrieved content.
-
-RETRIEVED CONTENT:
-{context}"""
+{context_block}
+Answer the user's question directly and concisely in 1–3 sentences.
+- Use the database context above as your primary source where available.
+- If the context does not fully answer the question, use your knowledge of Ajeer's platform to give an accurate answer.
+- Never invent specific numbers, dates, or policies not grounded in fact.
+- No greetings, no filler, no preamble."""
 
     return _gemini(system, user_message, state.get("history"))
 
@@ -1148,11 +1149,10 @@ def run_agent(
         )
 
         if mode == "exact":
-            # Verbatim answer from the database — zero LLM tokens used
             reply = rag_hit["answer"]
             sources = ["Ajeer FAQ (Qdrant — exact match)"]
         else:
-            # Medium confidence — short LLM synthesis grounded on retrieved context
+            # Synthesise from retrieved context; fall through to LangGraph if synthesis fails
             try:
                 reply = _rag_synthesise(
                     user_message=message,
@@ -1169,22 +1169,35 @@ def run_agent(
                 )
             except Exception as e:
                 print(
-                    f"[run_agent] RAG synthesis exception: {e} — returning verbatim answer"
+                    f"[run_agent] RAG synthesis exception: {e} — falling to LangGraph"
                 )
-                reply = rag_hit[
-                    "answer"
-                ]  # fall back to verbatim DB answer on synthesis failure
-            sources = ["Ajeer FAQ (Qdrant RAG + LLM synthesis)"]
+                reply = ""
 
-        return {
-            "reply": reply,
-            "agent_used": agent_used,
-            "agent_emoji": agent_emoji,
-            "route": rag_hit["category"],
-            "sources": sources,
-            "faq_db_hit": True,
-            "rag_score": score,
-        }
+            # If synthesis produced a dead-end "no answer" phrase, treat as miss → LangGraph
+            _NO_ANSWER_PHRASES = (
+                "i don't have a specific answer",
+                "i do not have a specific answer",
+                "please contact cs@ajeer",
+                "i don't have",
+            )
+            if not reply or any(p in reply.lower() for p in _NO_ANSWER_PHRASES):
+                print(
+                    f"[QDRANT RAG] Synthesis returned no-answer → falling to LangGraph agents"
+                )
+                rag_hit = None  # signal to skip return and continue to Layer 3
+            else:
+                sources = ["Ajeer FAQ (Qdrant RAG)"]
+
+        if rag_hit and reply:
+            return {
+                "reply": reply,
+                "agent_used": agent_used,
+                "agent_emoji": agent_emoji,
+                "route": rag_hit["category"],
+                "sources": sources,
+                "faq_db_hit": True,
+                "rag_score": score,
+            }
 
     # ── LAYER 2: MongoDB FAQ ──────────────────────────────────────────────────
     try:
