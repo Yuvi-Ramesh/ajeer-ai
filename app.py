@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
-import google.generativeai as genai
+from google import genai
 import requests
 import os
 from datetime import datetime
@@ -30,12 +30,20 @@ def db_ok():
 
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "your-gemini-api-key")
-EXCHANGE_API_KEY = os.environ.get(
-    "EXCHANGE_API_KEY", "your-exchange-api-key"
-)  # Add this
+EXCHANGE_API_KEY = os.environ.get("EXCHANGE_API_KEY", "your-exchange-api-key")
+GENERATE_MODEL = "gemini-2.5-flash-lite"
 
-genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-2.5-flash-lite")
+_genai_client = genai.Client(api_key=GEMINI_API_KEY)
+
+
+def _llm(prompt: str) -> str:
+    """Simple single-turn LLM call via new google.genai SDK."""
+    response = _genai_client.models.generate_content(
+        model=GENERATE_MODEL,
+        contents=prompt,
+    )
+    return response.text.strip()
+
 
 COUNTRY_CURRENCY_MAP = {
     "United States": {"code": "USD", "symbol": "$", "name": "US Dollar"},
@@ -435,8 +443,7 @@ def currency_insight():
     )
 
     try:
-        response = gemini_model.generate_content(prompt)
-        insight = response.text.strip()
+        insight = _llm(prompt)
 
         try:
             if mongo.db is not None:
@@ -507,6 +514,8 @@ def chat():
                 "agent_used": result.get("agent_used", ""),
                 "sources": result.get("sources", []),
                 "route": result.get("route", ""),
+                "faq_db_hit": result.get("faq_db_hit", False),
+                "rag_score": result.get("rag_score"),
             }
         )
 
