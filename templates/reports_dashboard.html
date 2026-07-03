@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ajeer — Reports Analytics</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --brand: #ff6b35;
+        --brand-dark: #e85a24;
+        --ink: #0d0d0d;
+        --paper: #f4f3ef;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #ffffff;
+        --sidebar: #0d0d0d;
+        --sidebar-w: 260px;
+        --high: #dc2626;
+        --medium: #d97706;
+        --low: #6b7280;
+        --good: #16a34a;
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--paper);
+        display: flex;
+      }
+      .sidebar {
+        width: var(--sidebar-w);
+        background: var(--sidebar);
+        min-height: 100vh;
+        position: fixed;
+        padding: 2rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .sidebar-brand {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.6rem;
+        color: #fff;
+        margin-bottom: 2.5rem;
+      }
+      .sidebar-brand span {
+        color: var(--brand);
+      }
+      .nav-section {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.3);
+        margin: 1.5rem 0 0.75rem 0;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 0.9rem;
+        border-radius: 10px;
+        color: rgba(255, 255, 255, 0.55);
+        text-decoration: none;
+        margin-bottom: 0.25rem;
+        transition: all 0.15s;
+      }
+      .nav-item:hover,
+      .nav-item.active {
+        background: var(--brand);
+        color: #fff;
+      }
+      .sidebar-footer {
+        margin-top: auto;
+      }
+      .admin-chip {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.07);
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+      }
+      .admin-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #8b5cf6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+      }
+      .admin-name {
+        font-size: 0.85rem;
+        color: #fff;
+        font-weight: 500;
+      }
+      .admin-role {
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .btn-logout {
+        display: block;
+        padding: 0.6rem 0.9rem;
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: #fca5a5;
+        border-radius: 8px;
+        text-decoration: none;
+        text-align: center;
+      }
+
+      .main {
+        margin-left: var(--sidebar-w);
+        flex: 1;
+        padding: 2.5rem;
+        max-width: 1300px;
+      }
+      .dash-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .dash-header h1 {
+        font-family: "Syne", sans-serif;
+        font-size: 1.6rem;
+      }
+      .dash-header p {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.3rem;
+      }
+      .header-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+      }
+      .pill-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+        border-radius: 30px;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .pill-btn.primary {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: #fff;
+        font-weight: 600;
+      }
+      #uploadInput {
+        display: none;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .tab {
+        padding: 0.55rem 1.1rem;
+        border-radius: 30px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-size: 0.85rem;
+        cursor: pointer;
+        color: var(--muted);
+      }
+      .tab.active {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+      }
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.1rem 1.3rem;
+      }
+      .stat-num {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.6rem;
+      }
+      .stat-num.warn {
+        color: var(--medium);
+      }
+      .stat-num.bad {
+        color: var(--high);
+      }
+      .stat-num.good {
+        color: var(--good);
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-top: 0.2rem;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 1.25rem 1.4rem;
+      }
+      .card h3 {
+        font-family: "Syne", sans-serif;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+      }
+      .card-note {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: -0.7rem;
+        margin-bottom: 0.9rem;
+      }
+      canvas {
+        max-height: 260px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.83rem;
+      }
+      th {
+        text-align: left;
+        color: var(--muted);
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+        padding: 0.5rem 0.6rem;
+        border-bottom: 1px solid var(--border);
+      }
+      td {
+        padding: 0.6rem;
+        border-bottom: 1px solid var(--border);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      .sev-badge {
+        padding: 0.2rem 0.55rem;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+      }
+      .sev-badge.critical {
+        background: rgba(220, 38, 38, 0.1);
+        color: var(--high);
+      }
+      .sev-badge.high {
+        background: rgba(220, 38, 38, 0.08);
+        color: var(--high);
+      }
+      .sev-badge.medium {
+        background: rgba(217, 119, 6, 0.1);
+        color: var(--medium);
+      }
+      .sev-badge.low {
+        background: rgba(107, 114, 128, 0.1);
+        color: var(--low);
+      }
+
+      .search-box {
+        display: flex;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+      }
+      .search-box input {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.9rem;
+        outline: none;
+      }
+      .search-box input:focus {
+        border-color: var(--brand);
+      }
+      .search-result {
+        padding: 0.8rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+      }
+      .search-result:last-child {
+        border-bottom: none;
+      }
+      .search-meta {
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-top: 0.2rem;
+      }
+      .empty-note {
+        color: var(--muted);
+        font-size: 0.85rem;
+        padding: 1rem 0;
+      }
+      .hidden {
+        display: none;
+      }
+      @media (max-width: 1100px) {
+        .stat-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="sidebar-brand">Ajeer<span>.</span></div>
+      <div class="nav-section">Main</div>
+      <a class="nav-item" href="/dashboard">⊞ Dashboard</a>
+      <div class="nav-section">Analytics</div>
+      <a class="nav-item" href="/behaviour">🧠 Behaviour Analysis</a>
+      <a class="nav-item" href="/admin/aml">🛡 AML Review</a>
+      <a class="nav-item active" href="/admin/reports">📊 Reports Analytics</a>
+      <a class="nav-item" href="/chatbot">🤖 AI Chatbot</a>
+      <div class="sidebar-footer">
+        <div class="admin-chip">
+          <div class="admin-avatar">
+            {{ admin_name[0].upper() if admin_name else 'A' }}
+          </div>
+          <div>
+            <div class="admin-name">{{ admin_name }}</div>
+            <div class="admin-role">Compliance Admin</div>
+          </div>
+        </div>
+        <a class="btn-logout" href="/logout">⬅ Sign Out</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="dash-header">
+        <div>
+          <h1>📊 Reports Analytics</h1>
+          <p>
+            Compliance, customer activity &amp; transaction reports — ingested
+            from Qdrant + MongoDB.
+          </p>
+        </div>
+        <div class="header-actions">
+          <input
+            type="file"
+            id="uploadInput"
+            accept=".xlsx,.csv"
+            onchange="uploadReport(this)"
+          />
+          <div
+            class="pill-btn"
+            onclick="document.getElementById('uploadInput').click()"
+          >
+            ⬆ Upload Report
+          </div>
+          <div class="pill-btn primary" onclick="loadAll()">⟳ Refresh</div>
+        </div>
+      </div>
+
+      <div class="stat-row" id="statRow">
+        <div class="stat-card">
+          <div class="stat-num" id="statCustomers">—</div>
+          <div class="stat-label">Total Customers</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statKyc">—</div>
+          <div class="stat-label">KYC Completion Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num bad" id="statAlerts">—</div>
+          <div class="stat-label">Open AML Alerts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statTxns">—</div>
+          <div class="stat-label">Total Transactions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num good" id="statVolume">—</div>
+          <div class="stat-label">GBP Volume</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div
+          class="tab active"
+          data-tab="compliance"
+          onclick="setTab('compliance', this)"
+        >
+          Compliance
+        </div>
+        <div
+          class="tab"
+          data-tab="customers"
+          onclick="setTab('customers', this)"
+        >
+          Customers
+        </div>
+        <div
+          class="tab"
+          data-tab="transactions"
+          onclick="setTab('transactions', this)"
+        >
+          Transactions
+        </div>
+        <div class="tab" data-tab="search" onclick="setTab('search', this)">
+          🔎 Ask the Reports
+        </div>
+      </div>
+
+      <!-- COMPLIANCE -->
+      <section id="tab-compliance">
+        <div class="grid-2">
+          <div class="card">
+            <h3>KYC Status Distribution</h3>
+            <canvas id="chartKyc"></canvas>
+          </div>
+          <div class="card">
+            <h3>Alerts by Severity</h3>
+            <canvas id="chartSeverity"></canvas>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom: 1.5rem">
+          <h3>Alerts by Type</h3>
+          <canvas id="chartAlertType"></canvas>
+        </div>
+        <div class="card">
+          <h3>Suspicious Activity (latest)</h3>
+          <table id="tblSuspicious">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Customer</th>
+                <th>Severity</th>
+                <th>Description</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CUSTOMERS -->
+      <section id="tab-customers" class="hidden">
+        <div class="grid-2">
+          <div class="card">
+            <h3>KYC Status</h3>
+            <canvas id="chartCustKyc"></canvas>
+          </div>
+          <div class="card">
+            <h3>Customer Type</h3>
+            <canvas id="chartCustType"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Customer Details (latest)</h3>
+          <table id="tblCustomers">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>KYC</th>
+                <th>Registered</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TRANSACTIONS -->
+      <section id="tab-transactions" class="hidden">
+        <div class="grid-2">
+          <div class="card">
+            <h3>By Status</h3>
+            <canvas id="chartTxnStatus"></canvas>
+          </div>
+          <div class="card">
+            <h3>By Corridor</h3>
+            <canvas id="chartCorridor"></canvas>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom: 1.5rem">
+          <h3>By Payment Method</h3>
+          <canvas id="chartPayment"></canvas>
+        </div>
+        <div class="card">
+          <h3>Transaction Details (latest)</h3>
+          <table id="tblTxns">
+            <thead>
+              <tr>
+                <th>Txn #</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Dest</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SEARCH -->
+      <section id="tab-search" class="hidden">
+        <div class="card">
+          <h3>Ask the reports (semantic search via Qdrant)</h3>
+          <div class="search-box">
+            <input
+              id="searchInput"
+              placeholder="e.g. Which customers have the most critical alerts?"
+              onkeydown="if (event.key === 'Enter') runSearch();"
+            />
+            <div class="pill-btn primary" onclick="runSearch()">Search</div>
+          </div>
+          <div id="searchResults"></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const charts = {};
+      function renderChart(id, type, labels, data, colors) {
+        const ctx = document.getElementById(id);
+        if (!ctx) return;
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(ctx, {
+          type,
+          data: {
+            labels,
+            datasets: [
+              {
+                data,
+                backgroundColor: colors || palette(labels.length),
+                borderWidth: 0,
+              },
+            ],
+          },
+          options: {
+            plugins: {
+              legend: {
+                display: type === "doughnut",
+                position: "bottom",
+                labels: { boxWidth: 10, font: { size: 11 } },
+              },
+            },
+            scales: type === "bar" ? { y: { beginAtZero: true } } : {},
+            maintainAspectRatio: false,
+          },
+        });
+      }
+      function palette(n) {
+        const base = [
+          "#ff6b35",
+          "#0d0d0d",
+          "#8b5cf6",
+          "#16a34a",
+          "#d97706",
+          "#dc2626",
+          "#0ea5e9",
+          "#6b7280",
+        ];
+        return Array.from({ length: n }, (_, i) => base[i % base.length]);
+      }
+      function fmtDate(d) {
+        if (!d) return "—";
+        try {
+          return new Date(d).toLocaleDateString();
+        } catch {
+          return d;
+        }
+      }
+      function sevClass(s) {
+        return (s || "").toLowerCase();
+      }
+
+      function setTab(name, el) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        el.classList.add("active");
+        ["compliance", "customers", "transactions", "search"].forEach((t) => {
+          document
+            .getElementById("tab-" + t)
+            .classList.toggle("hidden", t !== name);
+        });
+      }
+
+      async function loadOverview() {
+        const res = await fetch("/api/admin/reports/overview");
+        const data = await res.json();
+        if (!data.success) return;
+        const comp = data.compliance.summary || {};
+        const cust = data.customers.summary || {};
+        const txn = data.transactions.summary || {};
+
+        document.getElementById("statCustomers").textContent =
+          cust["Total Customers"] ?? "—";
+        const kyc = comp["KYC Completion Rate"];
+        document.getElementById("statKyc").textContent =
+          kyc != null ? (kyc * 100).toFixed(1) + "%" : "—";
+        document.getElementById("statAlerts").textContent =
+          comp["Open AML Alerts"] ?? "—";
+        document.getElementById("statTxns").textContent =
+          txn["Total Transactions"] ?? "—";
+        document.getElementById("statVolume").textContent =
+          txn["GBP Volume"] != null ? "£" + txn["GBP Volume"] : "—";
+      }
+
+      async function loadCompliance() {
+        const res = await fetch("/api/admin/reports/compliance");
+        const data = await res.json();
+        if (!data.success) return;
+
+        renderChart(
+          "chartKyc",
+          "doughnut",
+          data.kyc_distribution.map((r) => r.Status),
+          data.kyc_distribution.map((r) => r.Count),
+        );
+        renderChart(
+          "chartSeverity",
+          "bar",
+          data.alerts_by_severity.map((r) => r.Severity),
+          data.alerts_by_severity.map((r) => r.Count),
+          data.alerts_by_severity.map(
+            (r) =>
+              ({
+                Critical: "#dc2626",
+                High: "#dc2626",
+                Medium: "#d97706",
+                Low: "#6b7280",
+              })[r.Severity] || "#6b7280",
+          ),
+        );
+        renderChart(
+          "chartAlertType",
+          "bar",
+          data.alerts_by_type.map((r) => r["Alert Type"]),
+          data.alerts_by_type.map((r) => r.Total),
+        );
+
+        const tbody = document.querySelector("#tblSuspicious tbody");
+        tbody.innerHTML =
+          data.suspicious_activity
+            .slice(0, 20)
+            .map(
+              (r) => `
+          <tr>
+            <td>${r["Alert Type"] || ""}</td>
+            <td>${r.Customer || ""}</td>
+            <td><span class="sev-badge ${sevClass(r.Severity)}">${r.Severity || ""}</span></td>
+            <td>${r.Description || ""}</td>
+            <td>${fmtDate(r.Date)}</td>
+          </tr>`,
+            )
+            .join("") ||
+          '<tr><td colspan="5" class="empty-note">No suspicious activity records.</td></tr>';
+      }
+
+      async function loadCustomers() {
+        const res = await fetch("/api/admin/reports/customers");
+        const data = await res.json();
+        if (!data.success) return;
+
+        renderChart(
+          "chartCustKyc",
+          "doughnut",
+          data.kyc_status.map((r) => r["KYC Status"]),
+          data.kyc_status.map((r) => r.Count),
+        );
+        renderChart(
+          "chartCustType",
+          "doughnut",
+          Object.keys(data.customer_type_counts),
+          Object.values(data.customer_type_counts),
+        );
+
+        const tbody = document.querySelector("#tblCustomers tbody");
+        tbody.innerHTML =
+          data.customers
+            .slice(0, 25)
+            .map(
+              (c) => `
+          <tr>
+            <td>${c["Customer Code"] || ""}</td>
+            <td>${c["Full Name"] || "N/A"}</td>
+            <td>${c.Type || ""}</td>
+            <td>${c.Status || ""}</td>
+            <td>${c["KYC Status"] || ""}</td>
+            <td>${fmtDate(c["Registration Date"])}</td>
+          </tr>`,
+            )
+            .join("") ||
+          '<tr><td colspan="6" class="empty-note">No customer records.</td></tr>';
+      }
+
+      async function loadTransactions() {
+        const res = await fetch("/api/admin/reports/transactions");
+        const data = await res.json();
+        if (!data.success) return;
+
+        renderChart(
+          "chartTxnStatus",
+          "bar",
+          data.by_status.map((r) => `${r.Status} (${r.Currency})`),
+          data.by_status.map((r) => r.Volume),
+        );
+        renderChart(
+          "chartCorridor",
+          "bar",
+          data.by_corridor.map((r) => r.Corridor),
+          data.by_corridor.map((r) => r.Volume),
+        );
+        renderChart(
+          "chartPayment",
+          "bar",
+          data.by_payment_method.map(
+            (r) => `${r["Payment Method"]} (${r.Currency})`,
+          ),
+          data.by_payment_method.map((r) => r.Volume),
+        );
+
+        const tbody = document.querySelector("#tblTxns tbody");
+        tbody.innerHTML =
+          data.transactions
+            .slice(0, 25)
+            .map(
+              (t) => `
+          <tr>
+            <td>${t["Transaction #"] || ""}</td>
+            <td>${t.Customer || ""}</td>
+            <td>${t["Source Amount"]} ${t["Source Currency"]}</td>
+            <td>${t["Dest Amount"]} ${t["Dest Currency"]}</td>
+            <td>${t.Status || ""}</td>
+            <td>${fmtDate(t.Date)}</td>
+          </tr>`,
+            )
+            .join("") ||
+          '<tr><td colspan="6" class="empty-note">No transaction records.</td></tr>';
+      }
+
+      async function runSearch() {
+        const query = document.getElementById("searchInput").value.trim();
+        const box = document.getElementById("searchResults");
+        if (!query) return;
+        box.innerHTML = '<div class="empty-note">Searching…</div>';
+        const res = await fetch("/api/admin/reports/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, top_k: 8 }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          box.innerHTML = `<div class="empty-note">${data.message || "Search failed."}</div>`;
+          return;
+        }
+        box.innerHTML =
+          data.results
+            .map(
+              (r) => `
+          <div class="search-result">
+            <div>${r.text}</div>
+            <div class="search-meta">${r.report_type} · ${r.sheet} · score ${r.score.toFixed(3)}</div>
+          </div>`,
+            )
+            .join("") || '<div class="empty-note">No matches found.</div>';
+      }
+
+      async function uploadReport(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/admin/reports/upload", {
+          method: "POST",
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(
+            `Ingested ${file.name}: ${data.result.qdrant_chunks} chunks embedded.`,
+          );
+          loadAll();
+        } else {
+          alert("Upload failed: " + data.message);
+        }
+        input.value = "";
+      }
+
+      function loadAll() {
+        loadOverview();
+        loadCompliance();
+        loadCustomers();
+        loadTransactions();
+      }
+      loadAll();
+    </script>
+  </body>
+</html>

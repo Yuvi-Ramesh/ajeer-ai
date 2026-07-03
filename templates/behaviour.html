@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ajeer — Behaviour &amp; Risk Intelligence</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --brand: #ff6b35;
+        --brand-dark: #e85a24;
+        --brand-light: rgba(255, 107, 53, 0.1);
+        --ink: #0d0d0d;
+        --paper: #f4f3ef;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #ffffff;
+        --sidebar: #0d0d0d;
+        --sidebar-w: 260px;
+        --green: #10b981;
+        --blue: #3b82f6;
+        --purple: #8b5cf6;
+        --red: #ef4444;
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--paper);
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        width: var(--sidebar-w);
+        background: var(--sidebar);
+        min-height: 100vh;
+        position: fixed;
+        padding: 2rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        z-index: 100;
+      }
+      .sidebar-brand {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.6rem;
+        color: #fff;
+        margin-bottom: 2.5rem;
+        text-decoration: none;
+        display: block;
+      }
+      .sidebar-brand span {
+        color: var(--brand);
+      }
+      .nav-section {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.3);
+        margin: 1.5rem 0 0.75rem;
+        letter-spacing: 0.08em;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.6);
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .nav-item:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #fff;
+      }
+      .nav-item.active {
+        background: var(--brand);
+        color: #fff;
+        font-weight: 500;
+      }
+      .nav-icon {
+        font-size: 1rem;
+        width: 20px;
+        text-align: center;
+      }
+      .sidebar-footer {
+        margin-top: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 1.25rem;
+      }
+
+      /* ── Main ── */
+      .main {
+        margin-left: var(--sidebar-w);
+        flex: 1;
+        padding: 2rem 2.5rem;
+        max-width: calc(100vw - var(--sidebar-w));
+      }
+
+      /* ── Header ── */
+      .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .page-header h1 {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.9rem;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+      .page-header p {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.2rem;
+      }
+      .btn-refresh {
+        padding: 0.55rem 1.1rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--ink);
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-refresh:hover {
+        border-color: var(--brand);
+        color: var(--brand);
+      }
+      .btn-refresh:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      /* ── Data provenance strip ── */
+      .source-strip {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      .source-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+      }
+      .source-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+
+      /* ── Error / empty banner ── */
+      .state-banner {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        color: var(--muted);
+        margin-bottom: 1.5rem;
+        display: none;
+      }
+      .state-banner .icon {
+        font-size: 2.2rem;
+        margin-bottom: 0.75rem;
+      }
+      .state-banner h3 {
+        font-family: "Syne", sans-serif;
+        color: var(--ink);
+        margin-bottom: 0.4rem;
+      }
+
+      /* ── AI Report Card ── */
+      .ai-report {
+        background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .ai-report::before {
+        content: "";
+        position: absolute;
+        top: -80px;
+        right: -80px;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(255, 107, 53, 0.3) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .ai-report-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: rgba(255, 107, 53, 0.2);
+        color: var(--brand);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.3rem 0.75rem;
+        border-radius: 20px;
+        margin-bottom: 1.25rem;
+      }
+      .ai-report-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem 2.5rem;
+        position: relative;
+        z-index: 1;
+      }
+      .ai-section-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--brand);
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .ai-section-text {
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 0.92rem;
+        line-height: 1.65;
+      }
+      .ai-section-text.loading {
+        color: rgba(255, 255, 255, 0.35);
+        font-style: italic;
+      }
+      .ai-recommendations {
+        grid-column: span 2;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        padding-top: 1.25rem;
+      }
+      .ai-recommendations ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .ai-recommendations li {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        display: flex;
+        gap: 0.6rem;
+      }
+      .ai-recommendations li::before {
+        content: "✓";
+        color: var(--brand);
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      /* ── KPI Cards ── */
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+      }
+      .kpi-card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        border: 1px solid var(--border);
+      }
+      .kpi-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--muted);
+        margin-bottom: 0.6rem;
+      }
+      .kpi-value {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 1.7rem;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+      .kpi-sub {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 0.25rem;
+      }
+      .kpi-icon {
+        font-size: 1.4rem;
+        margin-bottom: 0.5rem;
+      }
+
+      /* ── Section headers ── */
+      .section-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.15rem;
+        color: var(--ink);
+        margin: 0.5rem 0 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .section-badge {
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+      }
+      .section-badge.txn {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--blue);
+      }
+      .section-badge.cust {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--green);
+      }
+      .section-badge.risk {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--red);
+      }
+
+      /* ── Chart Grid ── */
+      .chart-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .chart-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .chart-card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 1.5rem;
+        border: 1px solid var(--border);
+      }
+      .chart-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--ink);
+        margin-bottom: 0.25rem;
+      }
+      .chart-subtitle {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 1.25rem;
+      }
+      .chart-wrap {
+        position: relative;
+        height: 220px;
+      }
+
+      /* ── Generic data table ── */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .data-table th {
+        text-align: left;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        padding: 0 0.5rem 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .data-table td {
+        padding: 0.65rem 0.5rem 0.65rem 0;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 0.85rem;
+        color: var(--ink);
+        vertical-align: middle;
+        white-space: nowrap;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .data-table tr:last-child td {
+        border-bottom: none;
+      }
+      .table-scroll {
+        overflow-x: auto;
+      }
+
+      /* ── Empty state ── */
+      .empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: var(--muted);
+      }
+      .empty-state .empty-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .empty-state h3 {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 0.4rem;
+        font-size: 0.95rem;
+      }
+      .empty-state p {
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 900px) {
+        .sidebar {
+          display: none;
+        }
+        .main {
+          margin-left: 0;
+          padding: 1.5rem;
+          max-width: 100%;
+        }
+        .chart-grid,
+        .chart-grid-3,
+        .ai-report-grid {
+          grid-template-columns: 1fr;
+        }
+        .ai-recommendations {
+          grid-column: span 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <a class="sidebar-brand" href="/dashboard">Ajeer<span>.</span></a>
+
+      <div class="nav-section">Main</div>
+      <a class="nav-item" href="/dashboard"
+        ><span class="nav-icon">⊞</span> Dashboard</a
+      >
+      <a class="nav-item" href="/chatbot"
+        ><span class="nav-icon">🤖</span> AI Chatbot</a
+      >
+
+      <div class="nav-section">Analytics</div>
+      <a class="nav-item active" href="/behaviour"
+        ><span class="nav-icon">🧠</span> Behaviour Analysis</a
+      >
+      {% if session.get('role') == 'admin' %}
+      <a class="nav-item" href="/admin/aml"
+        ><span class="nav-icon">🛡</span> AML Review</a
+      >
+      <a class="nav-item" href="/admin/reports"
+        ><span class="nav-icon">📊</span> Reports Analytics</a
+      >
+      {% endif %}
+
+      <div class="nav-section">Account</div>
+      <a class="nav-item" href="/logout"
+        ><span class="nav-icon">🚪</span> Logout</a
+      >
+
+      <div class="sidebar-footer">
+        <div style="color: rgba(255, 255, 255, 0.3); font-size: 0.75rem">
+          Signed in as<br />
+          <span style="color: rgba(255, 255, 255, 0.7)">{{ user_name }}</span>
+          <span style="color: var(--brand)"> · {{ user_country }}</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+      <!-- Header -->
+      <div class="page-header">
+        <div>
+          <h1>🧠 Behaviour &amp; Risk Intelligence</h1>
+          <p>
+            AI-narrated analysis of live Ajeer platform reports — sourced
+            directly from Qdrant
+          </p>
+        </div>
+        <button class="btn-refresh" id="refreshBtn" onclick="loadAll()">
+          ↻ Refresh
+        </button>
+      </div>
+
+      <!-- Data provenance -->
+      <div class="source-strip" id="sourceStrip">
+        <span class="source-chip"
+          ><span class="source-dot"></span> connecting to Qdrant…</span
+        >
+      </div>
+
+      <!-- Error / empty state -->
+      <div class="state-banner" id="stateBanner">
+        <div class="icon">⚠️</div>
+        <h3>Could not load platform intelligence</h3>
+        <p id="stateMessage">—</p>
+      </div>
+
+      <div id="content" style="display: none">
+        <!-- AI Report -->
+        <div class="ai-report">
+          <div class="ai-report-label">✨ AI Analyst Briefing</div>
+          <div class="ai-report-grid">
+            <div>
+              <div class="ai-section-title">Executive Summary</div>
+              <div class="ai-section-text loading" id="aiExec">
+                Analysing latest platform reports…
+              </div>
+            </div>
+            <div>
+              <div class="ai-section-title">Transaction Patterns</div>
+              <div class="ai-section-text loading" id="aiTxn">—</div>
+            </div>
+            <div>
+              <div class="ai-section-title">Customer Insights</div>
+              <div class="ai-section-text loading" id="aiCust">—</div>
+            </div>
+            <div>
+              <div class="ai-section-title">Risk &amp; Compliance</div>
+              <div class="ai-section-text loading" id="aiRisk">—</div>
+            </div>
+            <div class="ai-recommendations">
+              <div class="ai-section-title">Recommended Actions</div>
+              <ul id="aiRecommendations">
+                <li>Loading recommendations…</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon">💸</div>
+            <div class="kpi-label">Total Volume</div>
+            <div class="kpi-value" id="kpiVolume">—</div>
+            <div class="kpi-sub">latest transaction report</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">🔄</div>
+            <div class="kpi-label">Transactions</div>
+            <div class="kpi-value" id="kpiTxns">—</div>
+            <div class="kpi-sub">recorded this period</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">📍</div>
+            <div class="kpi-label">Top Corridor</div>
+            <div class="kpi-value" id="kpiCorridor" style="font-size: 1.05rem">
+              —
+            </div>
+            <div class="kpi-sub">by transaction volume</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">📊</div>
+            <div class="kpi-label">Avg Transaction</div>
+            <div class="kpi-value" id="kpiAvg">—</div>
+            <div class="kpi-sub">per transfer</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">👥</div>
+            <div class="kpi-label">Customers</div>
+            <div class="kpi-value" id="kpiCustomers">—</div>
+            <div class="kpi-sub">on file</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">🚩</div>
+            <div class="kpi-label">Compliance Alerts</div>
+            <div class="kpi-value" id="kpiAlerts">—</div>
+            <div class="kpi-sub">latest compliance report</div>
+          </div>
+        </div>
+
+        <!-- Transaction section -->
+        <div class="section-title">
+          Transaction Patterns
+          <span class="section-badge txn">transaction_summary</span>
+        </div>
+        <div class="chart-grid-3">
+          <div class="chart-card">
+            <div class="chart-title">Volume by Corridor</div>
+            <div class="chart-subtitle">Top sending corridors</div>
+            <div class="chart-wrap"><canvas id="corridorChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Status Mix</div>
+            <div class="chart-subtitle">Transactions by status</div>
+            <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Payment Methods</div>
+            <div class="chart-subtitle">Volume by method</div>
+            <div class="chart-wrap"><canvas id="methodChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Customer section -->
+        <div class="section-title">
+          Customer Insights
+          <span class="section-badge cust">customer_activity</span>
+        </div>
+        <div class="chart-grid-3">
+          <div class="chart-card">
+            <div class="chart-title">Customer Type</div>
+            <div class="chart-subtitle">Distribution by type</div>
+            <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Customer Status</div>
+            <div class="chart-subtitle">Active vs. inactive vs. other</div>
+            <div class="chart-wrap"><canvas id="custStatusChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">KYC Distribution</div>
+            <div class="chart-subtitle">Verification status</div>
+            <div class="chart-wrap"><canvas id="kycChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Risk / Compliance section -->
+        <div class="section-title">
+          Risk &amp; Compliance Signals
+          <span class="section-badge risk">compliance</span>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-card">
+            <div class="chart-title">Alerts by Severity</div>
+            <div class="chart-subtitle">Open + resolved alerts</div>
+            <div class="chart-wrap"><canvas id="severityChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Alerts by Type</div>
+            <div class="chart-subtitle">Category breakdown</div>
+            <div class="chart-wrap"><canvas id="alertTypeChart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="chart-grid">
+          <div class="chart-card">
+            <div class="chart-title">Suspicious Activity</div>
+            <div class="chart-subtitle">Most recent flagged records</div>
+            <div class="table-scroll" id="suspiciousWrap">
+              <div class="empty-state">Loading…</div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Top Flagged Customers</div>
+            <div class="chart-subtitle">Highest-risk accounts on file</div>
+            <div class="table-scroll" id="flaggedWrap">
+              <div class="empty-state">Loading…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // ── State ──────────────────────────────────────────────────────────────
+      let charts = {};
+
+      const CHART_COLORS = [
+        "#ff6b35",
+        "#3b82f6",
+        "#10b981",
+        "#f59e0b",
+        "#8b5cf6",
+        "#ec4899",
+        "#14b8a6",
+        "#f97316",
+        "#6366f1",
+        "#84cc16",
+      ];
+
+      Chart.defaults.font.family = "'DM Sans', sans-serif";
+      Chart.defaults.color = "#6b7280";
+
+      // ── Format helpers ────────────────────────────────────────────────────
+      function toNum(v) {
+        if (v === null || v === undefined || v === "") return null;
+        if (typeof v === "number") return v;
+        const n = parseFloat(String(v).replace(/[,$%]/g, ""));
+        return isNaN(n) ? null : n;
+      }
+      function fmtNum(v) {
+        const n = toNum(v);
+        if (n === null) return v || "—";
+        if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
+        if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + "k";
+        return Number.isInteger(n) ? n.toString() : n.toFixed(2);
+      }
+      function fmtUSD(v) {
+        const n = toNum(v);
+        if (n === null) return v ? `$${v}` : "—";
+        return "$" + fmtNum(n);
+      }
+      function esc(s) {
+        return String(s ?? "—").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+
+      // ── Chart renderers (generic, work on any {label,value}[] pairs) ───────
+      function renderBar(id, pairs) {
+        if (charts[id]) charts[id].destroy();
+        if (!pairs || !pairs.length) return;
+        const ctx = document.getElementById(id).getContext("2d");
+        charts[id] = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: pairs.map((p) => p.label),
+            datasets: [
+              {
+                data: pairs.map((p) => p.value),
+                backgroundColor: CHART_COLORS.slice(0, pairs.length),
+                borderRadius: 6,
+                borderSkipped: false,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: {
+                grid: { color: "#f3f4f6" },
+                beginAtZero: true,
+                ticks: { callback: (v) => fmtNum(v) },
+              },
+              x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            },
+          },
+        });
+      }
+
+      function renderDoughnut(id, pairs) {
+        if (charts[id]) charts[id].destroy();
+        if (!pairs || !pairs.length) return;
+        const ctx = document.getElementById(id).getContext("2d");
+        charts[id] = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: pairs.map((p) => p.label),
+            datasets: [
+              {
+                data: pairs.map((p) => p.value),
+                backgroundColor: CHART_COLORS.slice(0, pairs.length),
+                borderWidth: 2,
+                borderColor: "#fff",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "right",
+                labels: { font: { size: 11 }, boxWidth: 12 },
+              },
+            },
+            cutout: "60%",
+          },
+        });
+      }
+
+      function emptyChartCard(id, message) {
+        const canvas = document.getElementById(id);
+        const wrap = canvas.parentElement;
+        wrap.innerHTML = `<div class="empty-state" style="padding:1.5rem 0;">
+          <div class="empty-icon">📭</div>
+          <p>${esc(message)}</p>
+        </div>`;
+      }
+
+      // ── Generic dynamic table renderer ──────────────────────────────────────
+      function renderTable(wrapId, rows, emptyMsg) {
+        const wrap = document.getElementById(wrapId);
+        if (!rows || !rows.length) {
+          wrap.innerHTML = `<div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <h3>No records</h3>
+            <p>${esc(emptyMsg)}</p>
+          </div>`;
+          return;
+        }
+        const cols = Object.keys(rows[0]).slice(0, 6);
+        const head = cols.map((c) => `<th>${esc(c)}</th>`).join("");
+        const body = rows
+          .map(
+            (r) =>
+              `<tr>${cols.map((c) => `<td title="${esc(r[c])}">${esc(r[c])}</td>`).join("")}</tr>`,
+          )
+          .join("");
+        wrap.innerHTML = `<table class="data-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      }
+
+      // ── AI report renderer ───────────────────────────────────────────────
+      function renderAIReport(report) {
+        const set = (id, text) => {
+          const el = document.getElementById(id);
+          el.className = "ai-section-text";
+          el.textContent =
+            text && text.trim() ? text : "No signal available for this period.";
+        };
+        set("aiExec", report.executive_summary);
+        set("aiTxn", report.transaction_patterns);
+        set("aiCust", report.customer_insights);
+        set("aiRisk", report.risk_compliance);
+
+        const list = document.getElementById("aiRecommendations");
+        const recs = report.recommendations || [];
+        list.innerHTML = recs.length
+          ? recs.map((r) => `<li>${esc(r)}</li>`).join("")
+          : `<li>No specific recommendations generated for this period.</li>`;
+      }
+
+      // ── KPI renderer ─────────────────────────────────────────────────────
+      function renderKPIs(kpis) {
+        document.getElementById("kpiVolume").textContent = fmtUSD(
+          kpis.total_volume,
+        );
+        document.getElementById("kpiTxns").textContent = fmtNum(
+          kpis.total_transactions,
+        );
+        document.getElementById("kpiCorridor").textContent =
+          kpis.top_corridor || "—";
+        document.getElementById("kpiAvg").textContent = fmtUSD(
+          kpis.avg_transaction,
+        );
+        document.getElementById("kpiCustomers").textContent = fmtNum(
+          kpis.total_customers,
+        );
+        document.getElementById("kpiAlerts").textContent = fmtNum(
+          kpis.total_alerts,
+        );
+      }
+
+      // ── Charts renderer ──────────────────────────────────────────────────
+      function renderCharts(charts) {
+        const chartSpecs = [
+          [
+            "corridorChart",
+            charts.by_corridor,
+            renderBar,
+            "No corridor data in the latest transaction report.",
+          ],
+          [
+            "statusChart",
+            charts.by_status,
+            renderDoughnut,
+            "No status breakdown available.",
+          ],
+          [
+            "methodChart",
+            charts.by_payment_method,
+            renderBar,
+            "No payment method breakdown available.",
+          ],
+          [
+            "typeChart",
+            charts.customer_type,
+            renderBar,
+            "No customer type data in the latest report.",
+          ],
+          [
+            "custStatusChart",
+            charts.customer_status,
+            renderDoughnut,
+            "No customer status data available.",
+          ],
+          [
+            "kycChart",
+            charts.kyc_distribution,
+            renderDoughnut,
+            "No KYC distribution data available.",
+          ],
+          [
+            "severityChart",
+            charts.alerts_severity,
+            renderBar,
+            "No compliance alerts logged this period.",
+          ],
+          [
+            "alertTypeChart",
+            charts.alerts_type,
+            renderDoughnut,
+            "No alert type breakdown available.",
+          ],
+        ];
+        chartSpecs.forEach(([id, pairs, renderer, msg]) => {
+          if (pairs && pairs.length) renderer(id, pairs);
+          else emptyChartCard(id, msg);
+        });
+      }
+
+      // ── Source strip ─────────────────────────────────────────────────────
+      function renderSource(source) {
+        const strip = document.getElementById("sourceStrip");
+        const periods = source.periods || {};
+        const chips = [
+          `<span class="source-chip"><span class="source-dot"></span> Qdrant · ${esc(source.collection)} (${source.total_points} pts)</span>`,
+        ];
+        for (const [k, v] of Object.entries(periods)) {
+          chips.push(
+            `<span class="source-chip">${esc(k)}: ${v ? esc(v) : "no data ingested"}</span>`,
+          );
+        }
+        strip.innerHTML = chips.join("");
+      }
+
+      function showError(message) {
+        document.getElementById("content").style.display = "none";
+        document.getElementById("stateBanner").style.display = "block";
+        document.getElementById("stateMessage").textContent =
+          message || "Unknown error.";
+      }
+
+      // ── Init / load ──────────────────────────────────────────────────────
+      async function loadAll() {
+        const btn = document.getElementById("refreshBtn");
+        btn.disabled = true;
+        btn.textContent = "↻ Refreshing…";
+        document.getElementById("stateBanner").style.display = "none";
+
+        try {
+          const res = await fetch("/api/behaviour/stats");
+          const data = await res.json();
+
+          if (!data.success) {
+            showError(data.message);
+            return;
+          }
+
+          document.getElementById("content").style.display = "block";
+          renderSource(data.source);
+          renderAIReport(data.ai_report || {});
+          renderKPIs(data.stats.kpis);
+          renderCharts(data.stats.charts);
+          renderTable(
+            "suspiciousWrap",
+            data.stats.tables.suspicious_activity,
+            "No suspicious activity records in the latest compliance report.",
+          );
+          renderTable(
+            "flaggedWrap",
+            data.stats.tables.top_flagged_customers,
+            "No flagged customers in the latest compliance report.",
+          );
+        } catch (err) {
+          console.error("Behaviour stats error:", err);
+          showError(err.message || "Failed to reach the server.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "↻ Refresh";
+        }
+      }
+
+      loadAll();
+    </script>
+  </body>
+</html>

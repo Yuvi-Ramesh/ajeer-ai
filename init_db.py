@@ -42,6 +42,13 @@ def init():
     db.currency_insights.create_index(
         [("user_id", ASCENDING), ("timestamp", ASCENDING)]
     )
+    db.remittance_logs.create_index([("user_id", ASCENDING), ("timestamp", ASCENDING)])
+    db.remittance_logs.create_index([("to_country", ASCENDING)])
+    print("✓ remittance_logs indexes created")
+    db.aml_flags.create_index([("status", ASCENDING), ("timestamp", ASCENDING)])
+    db.aml_flags.create_index([("user_id", ASCENDING)])
+    db.aml_flags.create_index([("severity", ASCENDING)])
+    print("✓ aml_flags indexes created")
     print("✓ Indexes created")
 
     # Seed admin user

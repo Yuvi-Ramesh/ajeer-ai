@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ajeer — AML Review</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --brand: #ff6b35;
+        --brand-dark: #e85a24;
+        --ink: #0d0d0d;
+        --paper: #f4f3ef;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #ffffff;
+        --sidebar: #0d0d0d;
+        --sidebar-w: 260px;
+        --ai: #8b5cf6;
+        --high: #dc2626;
+        --high-bg: rgba(220, 38, 38, 0.08);
+        --medium: #d97706;
+        --medium-bg: rgba(217, 119, 6, 0.08);
+        --low: #6b7280;
+        --low-bg: rgba(107, 114, 128, 0.08);
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--paper);
+        display: flex;
+      }
+      .sidebar {
+        width: var(--sidebar-w);
+        background: var(--sidebar);
+        min-height: 100vh;
+        position: fixed;
+        padding: 2rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .sidebar-brand {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.6rem;
+        color: #fff;
+        margin-bottom: 2.5rem;
+      }
+      .sidebar-brand span {
+        color: var(--brand);
+      }
+      .nav-section {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.3);
+        margin: 1.5rem 0 0.75rem 0;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 0.9rem;
+        border-radius: 10px;
+        color: rgba(255, 255, 255, 0.55);
+        text-decoration: none;
+        margin-bottom: 0.25rem;
+        transition: all 0.15s;
+      }
+      .nav-item:hover,
+      .nav-item.active {
+        background: var(--brand);
+        color: #fff;
+      }
+      .sidebar-footer {
+        margin-top: auto;
+      }
+      .admin-chip {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.07);
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+      }
+      .admin-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--ai);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+      }
+      .admin-name {
+        font-size: 0.85rem;
+        color: #fff;
+        font-weight: 500;
+      }
+      .admin-role {
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .btn-logout {
+        display: block;
+        padding: 0.6rem 0.9rem;
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: #fca5a5;
+        border-radius: 8px;
+        text-decoration: none;
+        text-align: center;
+      }
+      .main {
+        margin-left: var(--sidebar-w);
+        flex: 1;
+        padding: 2.5rem;
+        max-width: 1200px;
+      }
+      .dash-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+      }
+      .dash-header h1 {
+        font-family: "Syne", sans-serif;
+        font-size: 1.6rem;
+      }
+      .dash-header p {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.3rem;
+      }
+      .refresh-pill {
+        background: var(--card);
+        border: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+        border-radius: 30px;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .refresh-pill:hover {
+        border-color: var(--brand);
+      }
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+      }
+      .stat-num {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.8rem;
+      }
+      .stat-num.high {
+        color: var(--high);
+      }
+      .stat-label {
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-top: 0.2rem;
+      }
+      .filter-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+      }
+      .filter-chip {
+        padding: 0.45rem 1rem;
+        border-radius: 30px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-size: 0.8rem;
+        cursor: pointer;
+        color: var(--muted);
+        transition: all 0.15s;
+      }
+      .filter-chip.active {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .card {
+        background: var(--card);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .flag-row {
+        display: grid;
+        grid-template-columns: auto 1.4fr 1fr 1fr 0.8fr auto;
+        gap: 1rem;
+        align-items: center;
+        padding: 1.1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .flag-row:hover {
+        background: var(--paper);
+      }
+      .flag-row:last-child {
+        border-bottom: none;
+      }
+      .severity-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .severity-dot.high {
+        background: var(--high);
+      }
+      .severity-dot.medium {
+        background: var(--medium);
+      }
+      .severity-dot.low {
+        background: var(--low);
+      }
+      .flag-user {
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .flag-email {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .flag-amount {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .flag-route {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .flag-rules {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+      }
+      .rule-tag {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 20px;
+        background: var(--paper);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .rule-tag.sanctions {
+        background: var(--high-bg);
+        color: var(--high);
+        font-weight: 700;
+      }
+      .status-badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+        font-weight: 600;
+        white-space: nowrap;
+        text-align: center;
+      }
+      .status-badge.pending_review {
+        background: var(--medium-bg);
+        color: var(--medium);
+      }
+      .status-badge.cleared {
+        background: rgba(22, 163, 74, 0.08);
+        color: #16a34a;
+      }
+      .status-badge.escalated {
+        background: var(--high-bg);
+        color: var(--high);
+      }
+      .status-badge.blocked {
+        background: var(--high);
+        color: #fff;
+      }
+      .empty-state {
+        padding: 3rem 1.5rem;
+        text-align: center;
+        color: var(--muted);
+      }
+      /* Modal */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(13, 13, 13, 0.5);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .modal-overlay.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--card);
+        border-radius: 18px;
+        max-width: 640px;
+        width: 100%;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 2rem;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+      }
+      .modal-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 1.25rem;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.4rem;
+        cursor: pointer;
+        color: var(--muted);
+        line-height: 1;
+      }
+      .modal-section {
+        margin-bottom: 1.5rem;
+      }
+      .modal-section-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-bottom: 0.6rem;
+        font-weight: 600;
+      }
+      .reason-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .reason-list li {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.8rem;
+        background: var(--paper);
+        border-radius: 10px;
+        border-left: 3px solid var(--medium);
+      }
+      .ai-note {
+        background: rgba(139, 92, 246, 0.05);
+        border: 1px solid rgba(139, 92, 246, 0.14);
+        border-radius: 12px;
+        padding: 1rem;
+        font-size: 0.85rem;
+        line-height: 1.65;
+      }
+      .ai-note-label {
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        color: var(--ai);
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+      }
+      .history-table {
+        width: 100%;
+        font-size: 0.8rem;
+        border-collapse: collapse;
+      }
+      .history-table th {
+        text-align: left;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+      }
+      .history-table td {
+        padding: 0.5rem 0.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .review-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+      .btn-clear,
+      .btn-escalate {
+        flex: 1;
+        padding: 0.7rem;
+        border-radius: 10px;
+        border: none;
+        font-weight: 700;
+        font-family: "Syne", sans-serif;
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+      .btn-clear {
+        background: rgba(22, 163, 74, 0.1);
+        color: #16a34a;
+      }
+      .btn-clear:hover {
+        background: rgba(22, 163, 74, 0.18);
+      }
+      .btn-escalate {
+        background: var(--high);
+        color: #fff;
+      }
+      .btn-escalate:hover {
+        background: #b91c1c;
+      }
+      textarea.notes-input {
+        width: 100%;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        padding: 0.7rem;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 60px;
+        margin-bottom: 0.75rem;
+      }
+      .resolved-note {
+        font-size: 0.8rem;
+        color: var(--muted);
+        padding: 0.75rem;
+        background: var(--paper);
+        border-radius: 10px;
+      }
+      @media (max-width: 900px) {
+        .stat-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .flag-row {
+          grid-template-columns: auto 1fr;
+          row-gap: 0.4rem;
+        }
+        .flag-rules,
+        .flag-amount,
+        .flag-route {
+          grid-column: 2;
+        }
+      }
+      @media (max-width: 768px) {
+        .sidebar {
+          display: none;
+        }
+        .main {
+          margin-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="sidebar-brand">Ajeer<span>.</span></div>
+      <div class="nav-section">Main</div>
+      <a class="nav-item" href="/dashboard">⊞ Dashboard</a>
+      <div class="nav-section">Analytics</div>
+      <a class="nav-item" href="/behaviour">🧠 Behaviour Analysis</a>
+      <a class="nav-item active" href="/admin/aml">🛡 AML Review</a>
+      <a class="nav-item" href="/admin/reports">📊 Reports Analytics</a>
+      <a class="nav-item" href="/chatbot">🤖 AI Chatbot</a>
+      <div class="sidebar-footer">
+        <div class="admin-chip">
+          <div class="admin-avatar">
+            {{ admin_name[0].upper() if admin_name else 'A' }}
+          </div>
+          <div>
+            <div class="admin-name">{{ admin_name }}</div>
+            <div class="admin-role">Compliance Admin</div>
+          </div>
+        </div>
+        <a class="btn-logout" href="/logout">⬅ Sign Out</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="dash-header">
+        <div>
+          <h1>🛡 AML Review Queue</h1>
+          <p>
+            Real-time rule-based flags from every conversion. Severity and score
+            are deterministic — AI only narrates the findings.
+          </p>
+        </div>
+        <div class="refresh-pill" onclick="loadFlags()">⟳ Refresh</div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-num" id="statPending">—</div>
+          <div class="stat-label">Pending Review</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num high" id="statHigh">—</div>
+          <div class="stat-label">High Severity Pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statEscalated">—</div>
+          <div class="stat-label">Escalated</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statCleared">—</div>
+          <div class="stat-label">Cleared</div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div
+          class="filter-chip active"
+          data-status=""
+          onclick="setFilter('', this)"
+        >
+          All
+        </div>
+        <div
+          class="filter-chip"
+          data-status="pending_review"
+          onclick="setFilter('pending_review', this)"
+        >
+          Pending
+        </div>
+        <div
+          class="filter-chip"
+          data-status="blocked"
+          onclick="setFilter('blocked', this)"
+        >
+          Blocked (Sanctions)
+        </div>
+        <div
+          class="filter-chip"
+          data-status="escalated"
+          onclick="setFilter('escalated', this)"
+        >
+          Escalated
+        </div>
+        <div
+          class="filter-chip"
+          data-status="cleared"
+          onclick="setFilter('cleared', this)"
+        >
+          Cleared
+        </div>
+      </div>
+
+      <div class="card" id="flagListCard">
+        <div class="empty-state">Loading flags…</div>
+      </div>
+    </main>
+
+    <!-- Detail modal -->
+    <div
+      class="modal-overlay"
+      id="modalOverlay"
+      onclick="closeModalOnOverlay(event)"
+    >
+      <div class="modal" id="modalContent"></div>
+    </div>
+
+    <script>
+      let currentFlags = [];
+      let currentFilter = "";
+
+      function setFilter(status, el) {
+        currentFilter = status;
+        document
+          .querySelectorAll(".filter-chip")
+          .forEach((c) => c.classList.remove("active"));
+        el.classList.add("active");
+        renderFlags();
+      }
+
+      async function loadFlags() {
+        try {
+          const res = await fetch("/api/admin/aml/flags");
+          const data = await res.json();
+          if (!data.success) return;
+          currentFlags = data.flags;
+          document.getElementById("statPending").textContent =
+            data.counts.pending_review;
+          document.getElementById("statHigh").textContent =
+            data.counts.high_severity_pending;
+          document.getElementById("statEscalated").textContent =
+            data.counts.escalated;
+          document.getElementById("statCleared").textContent =
+            data.counts.cleared;
+          renderFlags();
+        } catch (e) {
+          document.getElementById("flagListCard").innerHTML =
+            '<div class="empty-state">Could not load flags.</div>';
+        }
+      }
+
+      function renderFlags() {
+        const list = currentFilter
+          ? currentFlags.filter((f) => f.status === currentFilter)
+          : currentFlags;
+        const card = document.getElementById("flagListCard");
+
+        if (list.length === 0) {
+          card.innerHTML =
+            '<div class="empty-state">No flags in this view. 🎉</div>';
+          return;
+        }
+
+        card.innerHTML = list
+          .map(
+            (f) => `
+          <div class="flag-row" onclick="openFlag('${f.id}')">
+            <div class="severity-dot ${f.severity}"></div>
+            <div>
+              <div class="flag-user">${escapeHtml(f.user_name)}</div>
+              <div class="flag-email">${escapeHtml(f.user_email)}</div>
+            </div>
+            <div class="flag-amount">$${f.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            <div class="flag-route">${f.from_currency} → ${f.to_currency} · ${escapeHtml(f.to_country)}</div>
+            <div class="flag-rules">${f.triggered_rules.map((r) => `<span class="rule-tag${r.startsWith("sanctions") ? " sanctions" : ""}">${r.replace(/_/g, " ")}</span>`).join("")}</div>
+            <div class="status-badge ${f.status}">${f.status.replace("_", " ")}</div>
+          </div>`,
+          )
+          .join("");
+      }
+
+      async function openFlag(flagId) {
+        const overlay = document.getElementById("modalOverlay");
+        const content = document.getElementById("modalContent");
+        content.innerHTML =
+          '<div class="empty-state">Loading analyst note…</div>';
+        overlay.classList.add("open");
+
+        try {
+          const res = await fetch(`/api/admin/aml/flags/${flagId}`);
+          const data = await res.json();
+          if (!data.success) {
+            content.innerHTML =
+              '<div class="empty-state">Flag not found.</div>';
+            return;
+          }
+          renderModal(data.flag, data.user_history);
+        } catch (e) {
+          content.innerHTML =
+            '<div class="empty-state">Failed to load detail.</div>';
+        }
+      }
+
+      function renderModal(flag, history) {
+        const content = document.getElementById("modalContent");
+        const isBlocked = flag.status === "blocked";
+        const isResolved =
+          flag.status !== "pending_review" && flag.status !== "blocked";
+
+        const sanctions = flag.sanctions_result;
+        const sanctionsSection =
+          sanctions && (sanctions.hit || sanctions.pep_hit || sanctions.block)
+            ? `<div class="modal-section">
+              <div class="modal-section-label">⚠ Sanctions / PEP screening</div>
+              <div class="ai-note" style="background: var(--high-bg); border-color: rgba(220,38,38,0.2);">
+                <div style="font-weight: 700; color: var(--high); margin-bottom: 0.4rem;">
+                  ${sanctions.block ? "BLOCK" : sanctions.hit ? "ALERT-level name match" : "PEP match"}
+                  — score ${(sanctions.score || sanctions.pep_score || 0).toFixed(2)}
+                </div>
+                <div style="font-size: 0.8rem; line-height: 1.5;">
+                  Screened by name${flag.user_country ? " + country" : ""} only — Ajeer does not yet
+                  collect date of birth or document number, so this is <strong>not</strong> a confirmed
+                  identity match. Verify with the user's full KYC details before taking action.
+                </div>
+              </div>
+            </div>`
+            : "";
+
+        content.innerHTML = `
+          <div class="modal-header">
+            <div>
+              <div class="modal-title">${escapeHtml(flag.user_name)}</div>
+              <div style="color: var(--muted); font-size: 0.82rem; margin-top: 0.2rem;">
+                ${escapeHtml(flag.user_email)} · ${escapeHtml(flag.user_country)}
+              </div>
+            </div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+          </div>
+
+          <div class="modal-section">
+            <div class="modal-section-label">Transaction</div>
+            <div style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem;">
+              $${flag.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
+            <div style="color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem;">
+              ${flag.from_currency} → ${flag.to_currency} · destination: ${escapeHtml(flag.to_country)} ·
+              risk score ${flag.score} (${flag.severity.toUpperCase()})
+            </div>
+          </div>
+
+          <div class="modal-section">
+            <div class="modal-section-label">Rule findings</div>
+            <ul class="reason-list">
+              ${flag.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}
+            </ul>
+          </div>
+
+          ${sanctionsSection}
+
+          <div class="modal-section">
+            <div class="ai-note">
+              <div class="ai-note-label">✨ AI Analyst Note (Gemini — explains findings only)</div>
+              ${escapeHtml(flag.ai_narrative || "Not generated.")}
+            </div>
+          </div>
+
+          <div class="modal-section">
+            <div class="modal-section-label">Recent transaction history (this user)</div>
+            <table class="history-table">
+              <thead><tr><th>Date</th><th>Route</th><th>Amount</th></tr></thead>
+              <tbody>
+                ${history
+                  .map(
+                    (h) => `<tr>
+                  <td>${h.timestamp ? new Date(h.timestamp).toLocaleString() : "—"}</td>
+                  <td>${h.from_currency} → ${h.to_currency} (${escapeHtml(h.to_country)})</td>
+                  <td>$${(h.amount_usd || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                </tr>`,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+
+          ${
+            isResolved
+              ? `<div class="modal-section">
+                  <div class="modal-section-label">Resolution</div>
+                  <div class="resolved-note">
+                    Marked <strong>${flag.status}</strong> by ${escapeHtml(flag.reviewed_by || "—")}
+                    ${flag.reviewed_at ? "on " + new Date(flag.reviewed_at).toLocaleString() : ""}.
+                    ${flag.reviewer_notes ? "<br>Note: " + escapeHtml(flag.reviewer_notes) : ""}
+                  </div>
+                </div>`
+              : isBlocked
+                ? `<div class="modal-section">
+                  <div class="modal-section-label">Reviewer decision — sanctions block</div>
+                  <div style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.6rem;">
+                    This transaction was auto-blocked. Confirm identity against the match using
+                    full KYC details before clearing, or escalate to compliance if the match holds.
+                  </div>
+                  <textarea class="notes-input" id="reviewNotes" placeholder="Notes for the record (required for a sanctions block)"></textarea>
+                  <div class="review-actions">
+                    <button class="btn-clear" onclick="resolveFlag('${flag.id}', 'cleared')">✓ Confirmed different person — clear</button>
+                    <button class="btn-escalate" onclick="resolveFlag('${flag.id}', 'escalated')">⚠ Confirmed match — escalate</button>
+                  </div>
+                </div>`
+                : `<div class="modal-section">
+                  <div class="modal-section-label">Reviewer decision</div>
+                  <textarea class="notes-input" id="reviewNotes" placeholder="Notes for the record (optional)"></textarea>
+                  <div class="review-actions">
+                    <button class="btn-clear" onclick="resolveFlag('${flag.id}', 'cleared')">✓ Clear — benign</button>
+                    <button class="btn-escalate" onclick="resolveFlag('${flag.id}', 'escalated')">⚠ Escalate</button>
+                  </div>
+                </div>`
+          }
+        `;
+      }
+
+      async function resolveFlag(flagId, status) {
+        const notes = document.getElementById("reviewNotes")?.value || "";
+        try {
+          const res = await fetch(`/api/admin/aml/flags/${flagId}/review`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status, notes }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            closeModal();
+            loadFlags();
+          }
+        } catch (e) {
+          alert("Failed to save review decision.");
+        }
+      }
+
+      function closeModal() {
+        document.getElementById("modalOverlay").classList.remove("open");
+      }
+
+      function closeModalOnOverlay(e) {
+        if (e.target.id === "modalOverlay") closeModal();
+      }
+
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      loadFlags();
+    </script>
+  </body>
+</html>

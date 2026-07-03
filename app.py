@@ -9,11 +9,16 @@ from functools import wraps
 from bson import ObjectId
 from dotenv import load_dotenv
 from agents import run_agent
+from behaviour_analysis import behaviour_bp, log_remittance
+from aml_analysis import aml_bp, run_aml_check
+from reports_analysis import reports_bp
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "ajeer-secret-key-2024")
-
+app.register_blueprint(behaviour_bp)
+app.register_blueprint(aml_bp)
+app.register_blueprint(reports_bp)
 app.config["MONGO_URI"] = os.environ.get(
     "MONGO_URI", "mongodb://localhost:27017/ajeer_db"
 )
@@ -195,6 +200,7 @@ def login():
                 session["currency_code"] = currency_info["code"]
                 session["currency_symbol"] = currency_info["symbol"]
                 session["currency_name"] = currency_info["name"]
+                session["role"] = user.get("role", "user")
 
                 # Update user document
                 try:
@@ -389,6 +395,7 @@ def convert_currency():
     amount = float(data.get("amount", 0))
     from_cur = data.get("from", "USD")
     to_cur = data.get("to", "USD")
+    to_country = data.get("to_country", "Unknown")
 
     # Use the ExchangeRate-API for conversion
     try:
@@ -397,13 +404,32 @@ def convert_currency():
         if response.status_code == 200:
             data = response.json()
             if data.get("result") == "success":
+                conv_rate = data.get("conversion_rate", 1.0)
+                log_remittance(
+                    db=mongo.db,
+                    user_id=session["user_id"],
+                    from_currency=from_cur,
+                    to_currency=to_cur,
+                    to_country=to_country,
+                    amount_usd=amount,
+                    rate=conv_rate,
+                )
+                run_aml_check(
+                    db=mongo.db,
+                    user_id=session["user_id"],
+                    from_currency=from_cur,
+                    to_currency=to_cur,
+                    to_country=to_country,
+                    amount_usd=amount,
+                    rate=conv_rate,
+                )
                 return jsonify(
                     {
                         "success": True,
                         "amount": amount,
                         "from": from_cur,
                         "to": to_cur,
-                        "rate": data.get("conversion_rate", 1.0),
+                        "rate": conv_rate,
                         "converted": data.get("conversion_result", amount),
                     }
                 )
@@ -412,6 +438,24 @@ def convert_currency():
 
     # Fallback to manual calculation
     rate = get_exchange_rate(from_cur, to_cur)
+    log_remittance(
+        db=mongo.db,
+        user_id=session["user_id"],
+        from_currency=from_cur,
+        to_currency=to_cur,
+        to_country=to_country,
+        amount_usd=amount,
+        rate=rate,
+    )
+    run_aml_check(
+        db=mongo.db,
+        user_id=session["user_id"],
+        from_currency=from_cur,
+        to_currency=to_cur,
+        to_country=to_country,
+        amount_usd=amount,
+        rate=rate,
+    )
     return jsonify(
         {
             "success": True,
